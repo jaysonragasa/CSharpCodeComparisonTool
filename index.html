@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C# Code Comparator</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Prism.js for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-vs.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
+
+    <!-- Diff Library (Fixed URL) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        
+        .code-input {
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+
+        /* Diff Styling */
+        .diff-added { background-color: #dcfce7; color: #166534; display: block; white-space: pre-wrap; }
+        .diff-removed { background-color: #fee2e2; color: #991b1b; display: block; white-space: pre-wrap; }
+        .diff-neutral { color: #334155; display: block; white-space: pre-wrap; }
+        .diff-header { color: #64748b; background: #f8fafc; padding: 2px 5px; font-size: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+
+        pre[class*="language-"] {
+            margin: 0 !important;
+            padding: 1rem !important;
+            background: transparent !important;
+            text-shadow: none !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+        <div class="flex items-center gap-3">
+            <div class="bg-indigo-600 p-2 rounded-lg text-white">
+                <i data-lucide="file-diff" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800">C# Comparator</h1>
+                <p class="text-xs text-slate-500">Compare full files or individual methods</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+            <button id="mode-full" onclick="setMode('full')" class="px-4 py-1.5 rounded-md text-sm font-medium transition-all shadow-sm bg-white text-indigo-600">
+                Full File
+            </button>
+            <button id="mode-methods" onclick="setMode('methods')" class="px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 transition-all">
+                Methods Only
+            </button>
+        </div>
+
+        <button onclick="compare()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
+            <i data-lucide="play" class="w-4 h-4"></i> Run Comparison
+        </button>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Input Area -->
+        <div id="input-container" class="flex-1 flex flex-col md:flex-row border-r border-slate-200 bg-white">
+            
+            <!-- Left Pane (Original) -->
+            <div class="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 relative group">
+                <div class="bg-slate-50 border-b border-slate-200 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <span>Source A (Original)</span>
+                    <label class="cursor-pointer hover:text-indigo-600 flex items-center gap-1">
+                        <i data-lucide="upload" class="w-3 h-3"></i> Load File
+                        <input type="file" onchange="loadFile(this, 'code1')" accept=".cs,.txt" class="hidden">
+                    </label>
+                </div>
+                <textarea id="code1" class="code-input w-full h-full p-4 resize-none focus:outline-none text-slate-700" placeholder="// Paste original C# code here..." spellcheck="false"></textarea>
+                <!-- Drag Overlay -->
+                <div id="drop1" class="hidden absolute inset-0 bg-indigo-50/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600">
+                    <i data-lucide="file-up" class="w-10 h-10 mb-2"></i>
+                    <span class="font-medium">Drop C# File Here</span>
+                </div>
+            </div>
+
+            <!-- Right Pane (Modified) -->
+            <div class="flex-1 flex flex-col relative group">
+                <div class="bg-slate-50 border-b border-slate-200 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <span>Source B (Modified)</span>
+                    <label class="cursor-pointer hover:text-indigo-600 flex items-center gap-1">
+                        <i data-lucide="upload" class="w-3 h-3"></i> Load File
+                        <input type="file" onchange="loadFile(this, 'code2')" accept=".cs,.txt" class="hidden">
+                    </label>
+                </div>
+                <textarea id="code2" class="code-input w-full h-full p-4 resize-none focus:outline-none text-slate-700" placeholder="// Paste modified C# code here..." spellcheck="false"></textarea>
+                <!-- Drag Overlay -->
+                <div id="drop2" class="hidden absolute inset-0 bg-indigo-50/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600">
+                    <i data-lucide="file-up" class="w-10 h-10 mb-2"></i>
+                    <span class="font-medium">Drop C# File Here</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Area (Initially Hidden or Small) -->
+        <div id="output-panel" class="w-0 bg-white border-l border-slate-200 flex flex-col transition-all duration-300 ease-in-out">
+            <div class="bg-slate-100 border-b border-slate-200 px-4 py-3 flex justify-between items-center shrink-0">
+                <h2 class="font-semibold text-slate-700 flex items-center gap-2">
+                    <i data-lucide="git-compare" class="w-4 h-4 text-indigo-600"></i> Comparison Results
+                </h2>
+                <button onclick="closeOutput()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div id="results-container" class="flex-1 overflow-auto p-0 bg-white relative">
+                <!-- Results injected here -->
+                <div class="flex flex-col items-center justify-center h-full text-slate-400">
+                    <i data-lucide="activity" class="w-10 h-10 mb-2 opacity-50"></i>
+                    <p>Run comparison to see results</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal for Method Diff Detail -->
+    <div id="method-modal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
+            <div class="flex items-center justify-between p-4 border-b border-slate-200">
+                <h3 id="modal-title" class="font-bold text-lg text-slate-800">Method Diff</h3>
+                <button onclick="closeModal()" class="p-1 hover:bg-slate-100 rounded-full transition-colors">
+                    <i data-lucide="x" class="w-5 h-5 text-slate-500"></i>
+                </button>
+            </div>
+            <div id="modal-content" class="flex-1 overflow-auto p-4 bg-slate-50 font-mono text-sm">
+                <!-- Diff content goes here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let currentMode = 'full'; // 'full' or 'methods'
+        
+        // --- Initialization ---
+        lucide.createIcons();
+        setupDragDrop('code1', 'drop1');
+        setupDragDrop('code2', 'drop2');
+
+        // --- UI Logic ---
+
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update Toggle UI
+            const btnFull = document.getElementById('mode-full');
+            const btnMethods = document.getElementById('mode-methods');
+            
+            if (mode === 'full') {
+                btnFull.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all shadow-sm bg-white text-indigo-600";
+                btnMethods.className = "px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 transition-all";
+            } else {
+                btnMethods.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all shadow-sm bg-white text-indigo-600";
+                btnFull.className = "px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 transition-all";
+            }
+        }
+
+        function loadFile(input, targetId) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById(targetId).value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        function setupDragDrop(areaId, overlayId) {
+            const area = document.getElementById(areaId).parentElement;
+            const overlay = document.getElementById(overlayId);
+            const textarea = document.getElementById(areaId);
+
+            area.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                overlay.classList.remove('hidden');
+            });
+            
+            overlay.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                overlay.classList.add('hidden');
+            });
+            
+            overlay.addEventListener('drop', (e) => {
+                e.preventDefault();
+                overlay.classList.add('hidden');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        textarea.value = ev.target.result;
+                    };
+                    reader.readAsText(file);
+                }
+            });
+        }
+
+        function closeOutput() {
+            const panel = document.getElementById('output-panel');
+            const inputContainer = document.getElementById('input-container');
+            panel.classList.remove('w-[50%]');
+            panel.classList.add('w-0');
+            // Show inputs again if hidden on mobile
+            inputContainer.classList.remove('hidden');
+        }
+
+        function openOutput() {
+            const panel = document.getElementById('output-panel');
+            panel.classList.remove('w-0');
+            panel.classList.add('w-[50%]'); // Opens to 50% width
+            
+            // On mobile, maybe hide inputs?
+            if (window.innerWidth < 768) {
+                panel.classList.remove('w-[50%]');
+                panel.classList.add('w-full');
+            }
+        }
+
+        // --- Core Comparison Logic ---
+
+        function compare() {
+            // Safety Check
+            if (typeof Diff === 'undefined') {
+                const container = document.getElementById('results-container');
+                container.innerHTML = `
+                    <div class="p-8 text-center text-red-600">
+                        <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto mb-2"></i>
+                        <p class="font-bold">Library Error</p>
+                        <p class="text-sm">The Diff library failed to load. Please check your internet connection or try refreshing the page.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                openOutput();
+                return;
+            }
+
+            const code1 = document.getElementById('code1').value || "";
+            const code2 = document.getElementById('code2').value || "";
+
+            const container = document.getElementById('results-container');
+            container.innerHTML = ''; // Clear previous
+
+            openOutput();
+
+            if (currentMode === 'full') {
+                renderFullDiff(code1, code2, container);
+            } else {
+                renderMethodDiff(code1, code2, container);
+            }
+        }
+
+        // --- Full Text Diff ---
+        function renderFullDiff(text1, text2, container) {
+            const diff = Diff.diffLines(text1, text2);
+            
+            // We'll construct HTML string
+            let html = '<div class="p-4 font-mono text-xs md:text-sm">';
+            
+            if (diff.length === 1 && !diff[0].added && !diff[0].removed) {
+                html += '<div class="text-center text-slate-500 py-8">Files are identical.</div>';
+            } else {
+                diff.forEach((part) => {
+                    // escape HTML
+                    const esc = escapeHtml(part.value);
+                    const colorClass = part.added ? 'diff-added' :
+                                       part.removed ? 'diff-removed' : 'diff-neutral';
+                    
+                    // Add symbol
+                    const symbol = part.added ? '+ ' : part.removed ? '- ' : '  ';
+                    
+                    // Split lines to handle symbols correctly per line
+                    const lines = esc.split('\n');
+                    if(lines[lines.length-1] === '') lines.pop(); // Remove trailing empty split
+                    
+                    lines.forEach(line => {
+                         html += `<span class="${colorClass}">${symbol}${line}</span>`;
+                    });
+                });
+            }
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // --- Method Parsing & Diff ---
+        
+        function renderMethodDiff(text1, text2, container) {
+            const methods1 = extractMethods(text1);
+            const methods2 = extractMethods(text2);
+            
+            const map1 = new Map(methods1.map(m => [m.signature, m]));
+            const map2 = new Map(methods2.map(m => [m.signature, m]));
+            
+            const allSigs = new Set([...map1.keys(), ...map2.keys()]);
+            const sortedSigs = Array.from(allSigs).sort();
+
+            if (sortedSigs.length === 0) {
+                 container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center p-8 text-slate-500">
+                        <i data-lucide="search-x" class="w-10 h-10 mb-2"></i>
+                        <p>No methods found. Ensure your code has standard C# method signatures.</p>
+                    </div>
+                 `;
+                 lucide.createIcons();
+                 return;
+            }
+
+            let html = `<div class="p-4 space-y-3">`;
+
+            sortedSigs.forEach(sig => {
+                const m1 = map1.get(sig);
+                const m2 = map2.get(sig);
+                
+                let status = '';
+                let badgeClass = '';
+                let icon = '';
+
+                if (!m1 && m2) {
+                    status = 'Added';
+                    badgeClass = 'bg-green-100 text-green-700 border-green-200';
+                    icon = 'plus-circle';
+                } else if (m1 && !m2) {
+                    status = 'Removed';
+                    badgeClass = 'bg-red-100 text-red-700 border-red-200';
+                    icon = 'minus-circle';
+                } else if (m1 && m2) {
+                    if (m1.body.trim() !== m2.body.trim()) {
+                        status = 'Modified';
+                        badgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
+                        icon = 'pencil';
+                    } else {
+                        status = 'Identical';
+                        badgeClass = 'bg-slate-100 text-slate-500 border-slate-200';
+                        icon = 'check-circle';
+                    }
+                }
+
+                if (status !== 'Identical') {
+                    html += `
+                        <div class="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between group" onclick="showMethodDetail('${escapeHtml(sig)}')">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <span class="px-2 py-1 rounded-md text-xs font-bold border ${badgeClass} shrink-0 flex items-center gap-1 w-24 justify-center">
+                                    <i data-lucide="${icon}" class="w-3 h-3"></i> ${status}
+                                </span>
+                                <code class="text-sm font-semibold text-slate-700 truncate font-mono" title="${escapeHtml(sig)}">${escapeHtml(sig)}</code>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-indigo-600"></i>
+                        </div>
+                    `;
+                }
+            });
+            
+            html += `</div>`;
+            container.innerHTML = html;
+            lucide.createIcons();
+
+            // Store for modal access
+            window.lastComparison = { map1, map2 };
+        }
+
+        // --- C# Parsing Helpers ---
+
+        function extractMethods(source) {
+            const methods = [];
+            // Regex to find method signature. 
+            // Matches: [modifiers] [return type] [Name] ( [args] )
+            // Limitation: Does not handle '=>' expression bodied members perfectly if they contain complex strings.
+            // But works for standard blocks.
+            const methodRegex = /((?:public|private|protected|internal|static|virtual|override|abstract|async|\s)+[\w<>[\]]+\s+(\w+)\s*\((?:[^)]*)\))\s*(?:where\s+[\w\s:<>,]+)?\s*\{/g;
+            
+            let match;
+            while ((match = methodRegex.exec(source)) !== null) {
+                const fullSig = match[1].trim().replace(/\s+/g, ' '); // Normalize spaces
+                const startIndex = match.index;
+                const openBraceIndex = startIndex + match[0].length - 1; // approximate
+                
+                // Find matching closing brace
+                const bodyEndIndex = findMatchingBrace(source, source.indexOf('{', startIndex));
+                
+                if (bodyEndIndex !== -1) {
+                    const fullText = source.substring(startIndex, bodyEndIndex + 1);
+                    const bodyOnly = source.substring(source.indexOf('{', startIndex), bodyEndIndex + 1);
+                    
+                    // Simple filter to ignore class/namespace declarations if they look like methods (constructors usually fine)
+                    if (!fullSig.includes("class ") && !fullSig.includes("namespace ")) {
+                         methods.push({
+                            signature: fullSig,
+                            body: bodyOnly,
+                            fullText: fullText
+                        });
+                    }
+                }
+            }
+            return methods;
+        }
+
+        function findMatchingBrace(text, startIndices) {
+            let depth = 0;
+            for (let i = startIndices; i < text.length; i++) {
+                if (text[i] === '{') depth++;
+                else if (text[i] === '}') {
+                    depth--;
+                    if (depth === 0) return i;
+                }
+            }
+            return -1;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // --- Modal Logic for Details ---
+
+        window.showMethodDetail = function(sig) {
+            // sig is escaped in HTML, so we might need to unescape or handle carefully.
+            // Actually, we passed the escaped sig to the function, but the maps key is unescaped.
+            // Let's rely on finding the key that matches loosely or decoding.
+            // Simple fix: reconstruct the key search
+            const maps = window.lastComparison;
+            
+            // Unescape check
+            let realSig = sig.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+            
+            const m1 = maps.map1.get(realSig);
+            const m2 = maps.map2.get(realSig);
+
+            const modal = document.getElementById('method-modal');
+            const content = document.getElementById('modal-content');
+            const title = document.getElementById('modal-title');
+
+            title.innerText = realSig;
+            modal.classList.remove('hidden');
+
+            const text1 = m1 ? m1.fullText : '';
+            const text2 = m2 ? m2.fullText : '';
+
+            // Render Diff inside Modal
+            const diff = Diff.diffLines(text1, text2);
+            let html = '';
+            diff.forEach((part) => {
+                const colorClass = part.added ? 'bg-green-100 text-green-900' :
+                                   part.removed ? 'bg-red-100 text-red-900' : 'text-slate-600';
+                const symbol = part.added ? '+' : part.removed ? '-' : ' ';
+                 html += `<div class="${colorClass} whitespace-pre-wrap border-l-4 ${part.added ? 'border-green-500' : part.removed ? 'border-red-500' : 'border-transparent'} pl-2">${escapeHtml(part.value)}</div>`;
+            });
+
+            content.innerHTML = html;
+        };
+
+        window.closeModal = function() {
+            document.getElementById('method-modal').classList.add('hidden');
+        };
+        
+        // Close modal on outside click
+        document.getElementById('method-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+    </script>
+</body>
+</html>
