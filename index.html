@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,13 +7,18 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
     
     <!-- Prism.js for Syntax Highlighting -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-vs.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-theme" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
 
-    <!-- Diff Library (Fixed URL) -->
+    <!-- Diff Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
     
     <!-- Lucide Icons -->
@@ -21,32 +26,81 @@
 
     <style>
         /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1; 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1; 
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8; 
-        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        .code-input {
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        /* Editor Styles */
+        .editor-container {
+            display: flex;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gutter {
+            user-select: none;
+            min-width: 3rem;
+            text-align: right;
+            padding: 1rem 0.5rem;
             font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
             font-size: 0.85rem;
             line-height: 1.5;
+            white-space: pre; /* Fix: Preserves newlines so numbers stack vertically */
+            overflow: hidden;
+            background-color: #f8fafc; /* slate-50 */
+            border-right: 1px solid #e2e8f0;
+            color: #94a3b8;
+        }
+        
+        .dark .gutter {
+            background-color: #1e293b; /* slate-800 */
+            border-color: #334155;
+            color: #64748b;
         }
 
-        /* Diff Styling */
-        .diff-added { background-color: #dcfce7; color: #166534; display: block; white-space: pre-wrap; }
-        .diff-removed { background-color: #fee2e2; color: #991b1b; display: block; white-space: pre-wrap; }
-        .diff-neutral { color: #334155; display: block; white-space: pre-wrap; }
-        .diff-header { color: #64748b; background: #f8fafc; padding: 2px 5px; font-size: 0.75rem; border-bottom: 1px solid #e2e8f0; }
+        .code-input {
+            flex: 1;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            white-space: pre; /* Important for line number alignment */
+            overflow: auto;
+            border: none;
+            resize: none;
+        }
+
+        /* Diff Table Styling */
+        .diff-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+        
+        .diff-num {
+            user-select: none;
+            text-align: right;
+            padding-right: 0.75rem;
+            width: 1%;
+            white-space: nowrap;
+            vertical-align: top;
+        }
+
+        .diff-content {
+            white-space: pre-wrap;
+            word-break: break-all;
+            padding-left: 0.5rem;
+            vertical-align: top;
+        }
+
+        /* Dark Mode Input overrides */
+        .dark .code-input { background-color: #0f172a; color: #e2e8f0; }
+        .dark .code-input::placeholder { color: #475569; }
 
         pre[class*="language-"] {
             margin: 0 !important;
@@ -56,52 +110,69 @@
         }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 h-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen flex flex-col font-sans overflow-hidden transition-colors duration-200">
 
     <!-- Header -->
-    <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm z-10 transition-colors duration-200">
         <div class="flex items-center gap-3">
             <div class="bg-indigo-600 p-2 rounded-lg text-white">
                 <i data-lucide="file-diff" class="w-6 h-6"></i>
             </div>
             <div>
-                <h1 class="text-xl font-bold text-slate-800">C# Comparator</h1>
-                <p class="text-xs text-slate-500">Compare full files or individual methods</p>
+                <h1 class="text-xl font-bold text-slate-800 dark:text-white">C# Comparator</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Diff Tool</p>
             </div>
         </div>
         
-        <div class="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
-            <button id="mode-full" onclick="setMode('full')" class="px-4 py-1.5 rounded-md text-sm font-medium transition-all shadow-sm bg-white text-indigo-600">
-                Full File
+        <div class="flex items-center gap-2 md:gap-4">
+            
+            <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer select-none bg-slate-100 dark:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 hidden md:flex">
+                <input type="checkbox" id="sync-scroll" checked class="accent-indigo-600 w-4 h-4 rounded">
+                <span>Sync Scroll</span>
+            </label>
+
+            <div class="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-lg border border-slate-200 dark:border-slate-600">
+                <button id="mode-full" onclick="setMode('full')" class="px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition-all shadow-sm bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300">
+                    Full File
+                </button>
+                <button id="mode-methods" onclick="setMode('methods')" class="px-3 py-1.5 rounded-md text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all">
+                    Methods
+                </button>
+            </div>
+
+            <button onclick="toggleTheme()" class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Toggle Theme">
+                <i id="theme-icon" data-lucide="sun" class="w-5 h-5"></i>
             </button>
-            <button id="mode-methods" onclick="setMode('methods')" class="px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 transition-all">
-                Methods Only
+
+            <button onclick="compare()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 md:px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
+                <i data-lucide="play" class="w-4 h-4"></i> <span class="hidden md:inline">Compare</span>
             </button>
         </div>
-
-        <button onclick="compare()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2">
-            <i data-lucide="play" class="w-4 h-4"></i> Run Comparison
-        </button>
     </header>
 
     <!-- Main Content -->
     <main class="flex-1 flex overflow-hidden">
         
         <!-- Input Area -->
-        <div id="input-container" class="flex-1 flex flex-col md:flex-row border-r border-slate-200 bg-white">
+        <div id="input-container" class="flex-1 flex flex-col md:flex-row border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-colors">
             
             <!-- Left Pane (Original) -->
-            <div class="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 relative group">
-                <div class="bg-slate-50 border-b border-slate-200 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <div class="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700 relative group">
+                <div class="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider transition-colors">
                     <span>Source A (Original)</span>
-                    <label class="cursor-pointer hover:text-indigo-600 flex items-center gap-1">
-                        <i data-lucide="upload" class="w-3 h-3"></i> Load File
+                    <label class="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1">
+                        <i data-lucide="upload" class="w-3 h-3"></i> Load
                         <input type="file" onchange="loadFile(this, 'code1')" accept=".cs,.txt" class="hidden">
                     </label>
                 </div>
-                <textarea id="code1" class="code-input w-full h-full p-4 resize-none focus:outline-none text-slate-700" placeholder="// Paste original C# code here..." spellcheck="false"></textarea>
+                
+                <div class="editor-container">
+                    <div id="gutter1" class="gutter">1</div>
+                    <textarea id="code1" class="code-input p-4 focus:outline-none bg-white dark:bg-[#0f172a] text-slate-700 dark:text-slate-300 transition-colors" placeholder="// Paste original C# code here..." spellcheck="false" oninput="updateLineNumbers('code1', 'gutter1')"></textarea>
+                </div>
+
                 <!-- Drag Overlay -->
-                <div id="drop1" class="hidden absolute inset-0 bg-indigo-50/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600">
+                <div id="drop1" class="hidden absolute inset-0 bg-indigo-50/90 dark:bg-indigo-900/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600 dark:text-indigo-300">
                     <i data-lucide="file-up" class="w-10 h-10 mb-2"></i>
                     <span class="font-medium">Drop C# File Here</span>
                 </div>
@@ -109,16 +180,21 @@
 
             <!-- Right Pane (Modified) -->
             <div class="flex-1 flex flex-col relative group">
-                <div class="bg-slate-50 border-b border-slate-200 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <div class="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider transition-colors">
                     <span>Source B (Modified)</span>
-                    <label class="cursor-pointer hover:text-indigo-600 flex items-center gap-1">
-                        <i data-lucide="upload" class="w-3 h-3"></i> Load File
+                    <label class="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1">
+                        <i data-lucide="upload" class="w-3 h-3"></i> Load
                         <input type="file" onchange="loadFile(this, 'code2')" accept=".cs,.txt" class="hidden">
                     </label>
                 </div>
-                <textarea id="code2" class="code-input w-full h-full p-4 resize-none focus:outline-none text-slate-700" placeholder="// Paste modified C# code here..." spellcheck="false"></textarea>
+                
+                <div class="editor-container">
+                    <div id="gutter2" class="gutter">1</div>
+                    <textarea id="code2" class="code-input p-4 focus:outline-none bg-white dark:bg-[#0f172a] text-slate-700 dark:text-slate-300 transition-colors" placeholder="// Paste modified C# code here..." spellcheck="false" oninput="updateLineNumbers('code2', 'gutter2')"></textarea>
+                </div>
+
                 <!-- Drag Overlay -->
-                <div id="drop2" class="hidden absolute inset-0 bg-indigo-50/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600">
+                <div id="drop2" class="hidden absolute inset-0 bg-indigo-50/90 dark:bg-indigo-900/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600 dark:text-indigo-300">
                     <i data-lucide="file-up" class="w-10 h-10 mb-2"></i>
                     <span class="font-medium">Drop C# File Here</span>
                 </div>
@@ -126,17 +202,17 @@
         </div>
 
         <!-- Output Area (Initially Hidden or Small) -->
-        <div id="output-panel" class="w-0 bg-white border-l border-slate-200 flex flex-col transition-all duration-300 ease-in-out">
-            <div class="bg-slate-100 border-b border-slate-200 px-4 py-3 flex justify-between items-center shrink-0">
-                <h2 class="font-semibold text-slate-700 flex items-center gap-2">
-                    <i data-lucide="git-compare" class="w-4 h-4 text-indigo-600"></i> Comparison Results
+        <div id="output-panel" class="w-0 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 flex flex-col transition-all duration-300 ease-in-out">
+            <div class="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex justify-between items-center shrink-0">
+                <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                    <i data-lucide="git-compare" class="w-4 h-4 text-indigo-600 dark:text-indigo-400"></i> Comparison
                 </h2>
-                <button onclick="closeOutput()" class="text-slate-400 hover:text-slate-600">
+                <button onclick="closeOutput()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
             
-            <div id="results-container" class="flex-1 overflow-auto p-0 bg-white relative">
+            <div id="results-container" class="flex-1 overflow-auto p-0 bg-white dark:bg-slate-900 relative transition-colors">
                 <!-- Results injected here -->
                 <div class="flex flex-col items-center justify-center h-full text-slate-400">
                     <i data-lucide="activity" class="w-10 h-10 mb-2 opacity-50"></i>
@@ -149,14 +225,14 @@
 
     <!-- Modal for Method Diff Detail -->
     <div id="method-modal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
-            <div class="flex items-center justify-between p-4 border-b border-slate-200">
-                <h3 id="modal-title" class="font-bold text-lg text-slate-800">Method Diff</h3>
-                <button onclick="closeModal()" class="p-1 hover:bg-slate-100 rounded-full transition-colors">
-                    <i data-lucide="x" class="w-5 h-5 text-slate-500"></i>
+        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                <h3 id="modal-title" class="font-bold text-lg text-slate-800 dark:text-slate-100">Method Diff</h3>
+                <button onclick="closeModal()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                    <i data-lucide="x" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>
                 </button>
             </div>
-            <div id="modal-content" class="flex-1 overflow-auto p-4 bg-slate-50 font-mono text-sm">
+            <div id="modal-content" class="flex-1 overflow-auto p-0 bg-white dark:bg-[#0f172a] font-mono text-sm text-slate-800 dark:text-slate-200">
                 <!-- Diff content goes here -->
             </div>
         </div>
@@ -164,28 +240,139 @@
 
     <script>
         // --- State Management ---
-        let currentMode = 'full'; // 'full' or 'methods'
+        let currentMode = 'full';
+        let isDarkMode = true;
         
         // --- Initialization ---
         lucide.createIcons();
         setupDragDrop('code1', 'drop1');
         setupDragDrop('code2', 'drop2');
+        setupScrollSync();
+        
+        // Initialize line numbers
+        updateLineNumbers('code1', 'gutter1');
+        updateLineNumbers('code2', 'gutter2');
+
+        // --- Line Numbers Logic ---
+        function updateLineNumbers(textareaId, gutterId) {
+            const textarea = document.getElementById(textareaId);
+            const gutter = document.getElementById(gutterId);
+            
+            // Count lines
+            const lines = textarea.value.split('\n').length;
+            
+            // Generate line numbers text
+            // Using a simple loop is faster than Array.from for massive files
+            let gutterText = '';
+            for(let i = 1; i <= lines; i++) {
+                gutterText += i + '\n';
+            }
+            // Ensure at least one line
+            if(!gutterText) gutterText = '1';
+            
+            gutter.textContent = gutterText;
+        }
+
+        // --- Theme Logic ---
+        function toggleTheme() {
+            const html = document.documentElement;
+            isDarkMode = !isDarkMode;
+            
+            if (isDarkMode) {
+                html.classList.add('dark');
+                html.classList.remove('light');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'sun');
+                document.getElementById('prism-theme').href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css';
+            } else {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                document.getElementById('theme-icon').setAttribute('data-lucide', 'moon');
+                document.getElementById('prism-theme').href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-vs.min.css';
+            }
+            lucide.createIcons();
+        }
+
+        // --- Scroll Sync Logic ---
+        function setupScrollSync() {
+            const t1 = document.getElementById('code1');
+            const g1 = document.getElementById('gutter1');
+            const t2 = document.getElementById('code2');
+            const g2 = document.getElementById('gutter2');
+            const resultPanel = document.getElementById('results-container');
+            const checkbox = document.getElementById('sync-scroll');
+            
+            let isSyncing1 = false;
+            let isSyncing2 = false;
+
+            // Sync Inputs & Gutters
+            t1.addEventListener('scroll', () => {
+                // Sync local gutter (Always)
+                g1.scrollTop = t1.scrollTop;
+
+                if (!checkbox.checked) return;
+                
+                // Sync other editor
+                if (!isSyncing1) {
+                    isSyncing2 = true;
+                    t2.scrollTop = t1.scrollTop;
+                    t2.scrollLeft = t1.scrollLeft;
+                    // Note: G2 scroll is handled by T2's scroll listener or we can set it here directly
+                    g2.scrollTop = t1.scrollTop; 
+                }
+                isSyncing1 = false;
+            });
+
+            t2.addEventListener('scroll', () => {
+                // Sync local gutter (Always)
+                g2.scrollTop = t2.scrollTop;
+
+                if (!checkbox.checked) return;
+                
+                // Sync other editor
+                if (!isSyncing2) {
+                    isSyncing1 = true;
+                    t1.scrollTop = t2.scrollTop;
+                    t1.scrollLeft = t2.scrollLeft;
+                    g1.scrollTop = t2.scrollTop;
+                }
+                isSyncing2 = false;
+            });
+
+            // Optional: Result Panel scrolling
+            resultPanel.addEventListener('scroll', () => {
+                if (!checkbox.checked) return;
+                
+                const percentage = resultPanel.scrollTop / (resultPanel.scrollHeight - resultPanel.clientHeight);
+                
+                if (isFinite(percentage)) {
+                     if (!isSyncing1) {
+                         isSyncing2 = true; 
+                         t1.scrollTop = percentage * (t1.scrollHeight - t1.clientHeight);
+                         t2.scrollTop = percentage * (t2.scrollHeight - t2.clientHeight);
+                         setTimeout(() => { isSyncing2 = false; }, 50); 
+                     }
+                }
+            });
+        }
+
 
         // --- UI Logic ---
 
         function setMode(mode) {
             currentMode = mode;
             
-            // Update Toggle UI
             const btnFull = document.getElementById('mode-full');
             const btnMethods = document.getElementById('mode-methods');
             
+            const activeClass = "px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition-all shadow-sm bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300";
+            const inactiveClass = "px-3 py-1.5 rounded-md text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all";
+
             if (mode === 'full') {
-                btnFull.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all shadow-sm bg-white text-indigo-600";
-                btnMethods.className = "px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 transition-all";
+                btnFull.className = activeClass;
+                btnMethods.className = inactiveClass;
             } else {
-                btnMethods.className = "px-4 py-1.5 rounded-md text-sm font-medium transition-all shadow-sm bg-white text-indigo-600";
-                btnFull.className = "px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-indigo-600 transition-all";
+                btnMethods.className = activeClass;
+                btnFull.className = inactiveClass;
             }
         }
 
@@ -195,17 +382,23 @@
             
             const reader = new FileReader();
             reader.onload = function(e) {
-                document.getElementById(targetId).value = e.target.result;
+                const text = e.target.result;
+                document.getElementById(targetId).value = text;
+                // Update Line Numbers for this field
+                const gutterId = targetId === 'code1' ? 'gutter1' : 'gutter2';
+                updateLineNumbers(targetId, gutterId);
             };
             reader.readAsText(file);
         }
 
         function setupDragDrop(areaId, overlayId) {
-            const area = document.getElementById(areaId).parentElement;
-            const overlay = document.getElementById(overlayId);
+            // Updated selector to find editor container parent then the group container
             const textarea = document.getElementById(areaId);
+            // .editor-container -> .group
+            const group = textarea.parentElement.parentElement;
+            const overlay = document.getElementById(overlayId);
 
-            area.addEventListener('dragover', (e) => {
+            group.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 overlay.classList.remove('hidden');
             });
@@ -224,6 +417,8 @@
                     const reader = new FileReader();
                     reader.onload = (ev) => {
                         textarea.value = ev.target.result;
+                        const gutterId = areaId === 'code1' ? 'gutter1' : 'gutter2';
+                        updateLineNumbers(areaId, gutterId);
                     };
                     reader.readAsText(file);
                 }
@@ -233,35 +428,32 @@
         function closeOutput() {
             const panel = document.getElementById('output-panel');
             const inputContainer = document.getElementById('input-container');
-            panel.classList.remove('w-[50%]');
+            panel.classList.remove('w-[50%]', 'w-full');
             panel.classList.add('w-0');
-            // Show inputs again if hidden on mobile
             inputContainer.classList.remove('hidden');
         }
 
         function openOutput() {
             const panel = document.getElementById('output-panel');
             panel.classList.remove('w-0');
-            panel.classList.add('w-[50%]'); // Opens to 50% width
             
-            // On mobile, maybe hide inputs?
             if (window.innerWidth < 768) {
-                panel.classList.remove('w-[50%]');
                 panel.classList.add('w-full');
+            } else {
+                panel.classList.add('w-[50%]');
             }
         }
 
         // --- Core Comparison Logic ---
 
         function compare() {
-            // Safety Check
             if (typeof Diff === 'undefined') {
                 const container = document.getElementById('results-container');
                 container.innerHTML = `
-                    <div class="p-8 text-center text-red-600">
+                    <div class="p-8 text-center text-red-600 dark:text-red-400">
                         <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto mb-2"></i>
                         <p class="font-bold">Library Error</p>
-                        <p class="text-sm">The Diff library failed to load. Please check your internet connection or try refreshing the page.</p>
+                        <p class="text-sm">The Diff library failed to load.</p>
                     </div>
                 `;
                 lucide.createIcons();
@@ -273,47 +465,67 @@
             const code2 = document.getElementById('code2').value || "";
 
             const container = document.getElementById('results-container');
-            container.innerHTML = ''; // Clear previous
+            container.innerHTML = ''; 
 
             openOutput();
 
             if (currentMode === 'full') {
-                renderFullDiff(code1, code2, container);
+                container.innerHTML = generateDiffHtml(code1, code2);
             } else {
                 renderMethodDiff(code1, code2, container);
             }
         }
 
-        // --- Full Text Diff ---
-        function renderFullDiff(text1, text2, container) {
+        function generateDiffHtml(text1, text2) {
             const diff = Diff.diffLines(text1, text2);
             
-            // We'll construct HTML string
-            let html = '<div class="p-4 font-mono text-xs md:text-sm">';
-            
             if (diff.length === 1 && !diff[0].added && !diff[0].removed) {
-                html += '<div class="text-center text-slate-500 py-8">Files are identical.</div>';
-            } else {
-                diff.forEach((part) => {
-                    // escape HTML
-                    const esc = escapeHtml(part.value);
-                    const colorClass = part.added ? 'diff-added' :
-                                       part.removed ? 'diff-removed' : 'diff-neutral';
-                    
-                    // Add symbol
-                    const symbol = part.added ? '+ ' : part.removed ? '- ' : '  ';
-                    
-                    // Split lines to handle symbols correctly per line
-                    const lines = esc.split('\n');
-                    if(lines[lines.length-1] === '') lines.pop(); // Remove trailing empty split
-                    
-                    lines.forEach(line => {
-                         html += `<span class="${colorClass}">${symbol}${line}</span>`;
-                    });
-                });
+                return '<div class="text-center text-slate-500 dark:text-slate-400 py-8">Files are identical.</div>';
             }
-            html += '</div>';
-            container.innerHTML = html;
+
+            let html = '<table class="diff-table"><tbody>';
+            let oldLine = 1;
+            let newLine = 1;
+
+            diff.forEach((part) => {
+                const colorClass = part.added ? 'bg-green-100 dark:bg-green-900/30' :
+                                   part.removed ? 'bg-red-100 dark:bg-red-900/30' : '';
+                
+                const textColor = part.added ? 'text-green-800 dark:text-green-300' :
+                                  part.removed ? 'text-red-800 dark:text-red-300' : 'text-slate-600 dark:text-slate-400';
+                
+                const symbol = part.added ? '+' : part.removed ? '-' : ' ';
+
+                const lines = part.value.split('\n');
+                if(lines[lines.length-1] === '') lines.pop();
+
+                lines.forEach(line => {
+                    let oNum = '';
+                    let nNum = '';
+
+                    if (!part.added) {
+                        oNum = oldLine++;
+                    }
+                    if (!part.removed) {
+                        nNum = newLine++;
+                    }
+
+                    html += `
+                        <tr class="${colorClass} ${textColor} hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors">
+                            <td class="diff-num text-slate-400 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">${part.added ? '' : oNum}</td>
+                            <td class="diff-num text-slate-400 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">${part.removed ? '' : nNum}</td>
+                            <td class="diff-content">${symbol} ${escapeHtml(line)}</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function renderFullDiff(text1, text2, container) {
+            container.innerHTML = generateDiffHtml(text1, text2);
         }
 
         // --- Method Parsing & Diff ---
@@ -330,7 +542,7 @@
 
             if (sortedSigs.length === 0) {
                  container.innerHTML = `
-                    <div class="flex flex-col items-center justify-center p-8 text-slate-500">
+                    <div class="flex flex-col items-center justify-center p-8 text-slate-500 dark:text-slate-400">
                         <i data-lucide="search-x" class="w-10 h-10 mb-2"></i>
                         <p>No methods found. Ensure your code has standard C# method signatures.</p>
                     </div>
@@ -351,34 +563,34 @@
 
                 if (!m1 && m2) {
                     status = 'Added';
-                    badgeClass = 'bg-green-100 text-green-700 border-green-200';
+                    badgeClass = 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800';
                     icon = 'plus-circle';
                 } else if (m1 && !m2) {
                     status = 'Removed';
-                    badgeClass = 'bg-red-100 text-red-700 border-red-200';
+                    badgeClass = 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800';
                     icon = 'minus-circle';
                 } else if (m1 && m2) {
                     if (m1.body.trim() !== m2.body.trim()) {
                         status = 'Modified';
-                        badgeClass = 'bg-amber-100 text-amber-700 border-amber-200';
+                        badgeClass = 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800';
                         icon = 'pencil';
                     } else {
                         status = 'Identical';
-                        badgeClass = 'bg-slate-100 text-slate-500 border-slate-200';
+                        badgeClass = 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
                         icon = 'check-circle';
                     }
                 }
 
                 if (status !== 'Identical') {
                     html += `
-                        <div class="bg-white border border-slate-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between group" onclick="showMethodDetail('${escapeHtml(sig)}')">
+                        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between group" onclick="showMethodDetail('${escapeHtml(sig)}')">
                             <div class="flex items-center gap-3 overflow-hidden">
                                 <span class="px-2 py-1 rounded-md text-xs font-bold border ${badgeClass} shrink-0 flex items-center gap-1 w-24 justify-center">
                                     <i data-lucide="${icon}" class="w-3 h-3"></i> ${status}
                                 </span>
-                                <code class="text-sm font-semibold text-slate-700 truncate font-mono" title="${escapeHtml(sig)}">${escapeHtml(sig)}</code>
+                                <code class="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate font-mono" title="${escapeHtml(sig)}">${escapeHtml(sig)}</code>
                             </div>
-                            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-indigo-600"></i>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400"></i>
                         </div>
                     `;
                 }
@@ -387,35 +599,25 @@
             html += `</div>`;
             container.innerHTML = html;
             lucide.createIcons();
-
-            // Store for modal access
             window.lastComparison = { map1, map2 };
         }
 
-        // --- C# Parsing Helpers ---
-
         function extractMethods(source) {
             const methods = [];
-            // Regex to find method signature. 
-            // Matches: [modifiers] [return type] [Name] ( [args] )
-            // Limitation: Does not handle '=>' expression bodied members perfectly if they contain complex strings.
-            // But works for standard blocks.
             const methodRegex = /((?:public|private|protected|internal|static|virtual|override|abstract|async|\s)+[\w<>[\]]+\s+(\w+)\s*\((?:[^)]*)\))\s*(?:where\s+[\w\s:<>,]+)?\s*\{/g;
             
             let match;
             while ((match = methodRegex.exec(source)) !== null) {
-                const fullSig = match[1].trim().replace(/\s+/g, ' '); // Normalize spaces
+                const fullSig = match[1].trim().replace(/\s+/g, ' '); 
                 const startIndex = match.index;
-                const openBraceIndex = startIndex + match[0].length - 1; // approximate
+                const openBraceIndex = startIndex + match[0].length - 1; 
                 
-                // Find matching closing brace
                 const bodyEndIndex = findMatchingBrace(source, source.indexOf('{', startIndex));
                 
                 if (bodyEndIndex !== -1) {
                     const fullText = source.substring(startIndex, bodyEndIndex + 1);
                     const bodyOnly = source.substring(source.indexOf('{', startIndex), bodyEndIndex + 1);
                     
-                    // Simple filter to ignore class/namespace declarations if they look like methods (constructors usually fine)
                     if (!fullSig.includes("class ") && !fullSig.includes("namespace ")) {
                          methods.push({
                             signature: fullSig,
@@ -450,16 +652,8 @@
                 .replace(/'/g, "&#039;");
         }
 
-        // --- Modal Logic for Details ---
-
         window.showMethodDetail = function(sig) {
-            // sig is escaped in HTML, so we might need to unescape or handle carefully.
-            // Actually, we passed the escaped sig to the function, but the maps key is unescaped.
-            // Let's rely on finding the key that matches loosely or decoding.
-            // Simple fix: reconstruct the key search
             const maps = window.lastComparison;
-            
-            // Unescape check
             let realSig = sig.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
             
             const m1 = maps.map1.get(realSig);
@@ -475,24 +669,13 @@
             const text1 = m1 ? m1.fullText : '';
             const text2 = m2 ? m2.fullText : '';
 
-            // Render Diff inside Modal
-            const diff = Diff.diffLines(text1, text2);
-            let html = '';
-            diff.forEach((part) => {
-                const colorClass = part.added ? 'bg-green-100 text-green-900' :
-                                   part.removed ? 'bg-red-100 text-red-900' : 'text-slate-600';
-                const symbol = part.added ? '+' : part.removed ? '-' : ' ';
-                 html += `<div class="${colorClass} whitespace-pre-wrap border-l-4 ${part.added ? 'border-green-500' : part.removed ? 'border-red-500' : 'border-transparent'} pl-2">${escapeHtml(part.value)}</div>`;
-            });
-
-            content.innerHTML = html;
+            content.innerHTML = generateDiffHtml(text1, text2);
         };
 
         window.closeModal = function() {
             document.getElementById('method-modal').classList.add('hidden');
         };
         
-        // Close modal on outside click
         document.getElementById('method-modal').addEventListener('click', function(e) {
             if (e.target === this) closeModal();
         });
