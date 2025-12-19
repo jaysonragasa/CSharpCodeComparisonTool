@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C# Code Comparator</title>
+    <title>C# Code Comparator (Monaco)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -13,19 +13,24 @@
         }
     </script>
     
-    <!-- Prism.js for Syntax Highlighting -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" id="prism-theme" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
-
-    <!-- Diff Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
-    
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- JSDiff (Still used for Method logic analysis) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
+
+    <!-- Monaco Editor Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+
     <style>
-        /* Custom Scrollbar */
+        /* Container sizes for Monaco */
+        .monaco-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        /* Custom Scrollbar for non-editor parts */
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -34,83 +39,21 @@
         .dark ::-webkit-scrollbar-thumb { background: #475569; }
         .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
         
-        /* Editor Styles */
-        .editor-container {
-            display: flex;
-            height: 100%;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .gutter {
-            user-select: none;
-            min-width: 3rem;
-            text-align: right;
-            padding: 1rem 0.5rem;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 0.85rem;
-            line-height: 1.5;
-            white-space: pre; /* Fix: Preserves newlines so numbers stack vertically */
-            overflow: hidden;
-            background-color: #f8fafc; /* slate-50 */
-            border-right: 1px solid #e2e8f0;
-            color: #94a3b8;
-        }
-        
-        .dark .gutter {
-            background-color: #1e293b; /* slate-800 */
-            border-color: #334155;
-            color: #64748b;
-        }
-
-        .code-input {
-            flex: 1;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 0.85rem;
-            line-height: 1.5;
-            white-space: pre; /* Important for line number alignment */
-            overflow: auto;
-            border: none;
-            resize: none;
-        }
-
-        /* Diff Table Styling */
-        .diff-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 0.8rem;
-        }
-        
-        .diff-num {
-            user-select: none;
-            text-align: right;
-            padding-right: 0.75rem;
-            width: 1%;
-            white-space: nowrap;
-            vertical-align: top;
-        }
-
-        .diff-content {
-            white-space: pre-wrap;
-            word-break: break-all;
-            padding-left: 0.5rem;
-            vertical-align: top;
-        }
-
-        /* Dark Mode Input overrides */
-        .dark .code-input { background-color: #0f172a; color: #e2e8f0; }
-        .dark .code-input::placeholder { color: #475569; }
-
-        pre[class*="language-"] {
-            margin: 0 !important;
-            padding: 1rem !important;
-            background: transparent !important;
-            text-shadow: none !important;
+        /* Loading Overlay */
+        #loader {
+            position: fixed; inset: 0; background: #0f172a; z-index: 50; 
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-family: sans-serif; flex-direction: column; gap: 10px;
         }
     </style>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen flex flex-col font-sans overflow-hidden transition-colors duration-200">
+
+    <!-- Initial Loader -->
+    <div id="loader">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        <div class="text-sm opacity-80">Loading Editor...</div>
+    </div>
 
     <!-- Header -->
     <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 md:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm z-10 transition-colors duration-200">
@@ -120,17 +63,11 @@
             </div>
             <div>
                 <h1 class="text-xl font-bold text-slate-800 dark:text-white">C# Comparator</h1>
-                <p class="text-xs text-slate-500 dark:text-slate-400">Diff Tool</p>
             </div>
         </div>
         
         <div class="flex items-center gap-2 md:gap-4">
             
-            <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer select-none bg-slate-100 dark:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600 hidden md:flex">
-                <input type="checkbox" id="sync-scroll" checked class="accent-indigo-600 w-4 h-4 rounded">
-                <span>Sync Scroll</span>
-            </label>
-
             <div class="flex items-center bg-slate-100 dark:bg-slate-700 p-1 rounded-lg border border-slate-200 dark:border-slate-600">
                 <button id="mode-full" onclick="setMode('full')" class="px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition-all shadow-sm bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300">
                     Full File
@@ -154,54 +91,39 @@
     <main class="flex-1 flex overflow-hidden">
         
         <!-- Input Area -->
-        <div id="input-container" class="flex-1 flex flex-col md:flex-row border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-colors">
+        <!-- Added min-w-0 to allow flex container to shrink below content size -->
+        <div id="input-container" class="flex-1 min-w-0 flex flex-col md:flex-row border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-colors">
             
             <!-- Left Pane (Original) -->
-            <div class="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700 relative group">
+            <div class="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700 relative group min-w-0">
                 <div class="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider transition-colors">
                     <span>Source A (Original)</span>
                     <label class="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1">
                         <i data-lucide="upload" class="w-3 h-3"></i> Load
-                        <input type="file" onchange="loadFile(this, 'code1')" accept=".cs,.txt" class="hidden">
+                        <input type="file" onchange="loadFile(this, 1)" accept=".cs,.txt" class="hidden">
                     </label>
                 </div>
                 
-                <div class="editor-container">
-                    <div id="gutter1" class="gutter">1</div>
-                    <textarea id="code1" class="code-input p-4 focus:outline-none bg-white dark:bg-[#0f172a] text-slate-700 dark:text-slate-300 transition-colors" placeholder="// Paste original C# code here..." spellcheck="false" oninput="updateLineNumbers('code1', 'gutter1')"></textarea>
-                </div>
-
-                <!-- Drag Overlay -->
-                <div id="drop1" class="hidden absolute inset-0 bg-indigo-50/90 dark:bg-indigo-900/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600 dark:text-indigo-300">
-                    <i data-lucide="file-up" class="w-10 h-10 mb-2"></i>
-                    <span class="font-medium">Drop C# File Here</span>
-                </div>
+                <!-- Monaco Container 1 -->
+                <div id="editor1" class="monaco-container"></div>
             </div>
 
             <!-- Right Pane (Modified) -->
-            <div class="flex-1 flex flex-col relative group">
+            <div class="flex-1 flex flex-col relative group min-w-0">
                 <div class="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-2 flex justify-between items-center text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider transition-colors">
                     <span>Source B (Modified)</span>
                     <label class="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1">
                         <i data-lucide="upload" class="w-3 h-3"></i> Load
-                        <input type="file" onchange="loadFile(this, 'code2')" accept=".cs,.txt" class="hidden">
+                        <input type="file" onchange="loadFile(this, 2)" accept=".cs,.txt" class="hidden">
                     </label>
                 </div>
                 
-                <div class="editor-container">
-                    <div id="gutter2" class="gutter">1</div>
-                    <textarea id="code2" class="code-input p-4 focus:outline-none bg-white dark:bg-[#0f172a] text-slate-700 dark:text-slate-300 transition-colors" placeholder="// Paste modified C# code here..." spellcheck="false" oninput="updateLineNumbers('code2', 'gutter2')"></textarea>
-                </div>
-
-                <!-- Drag Overlay -->
-                <div id="drop2" class="hidden absolute inset-0 bg-indigo-50/90 dark:bg-indigo-900/90 border-2 border-dashed border-indigo-400 z-20 flex items-center justify-center flex-col text-indigo-600 dark:text-indigo-300">
-                    <i data-lucide="file-up" class="w-10 h-10 mb-2"></i>
-                    <span class="font-medium">Drop C# File Here</span>
-                </div>
+                <!-- Monaco Container 2 -->
+                <div id="editor2" class="monaco-container"></div>
             </div>
         </div>
 
-        <!-- Output Area (Initially Hidden or Small) -->
+        <!-- Output Area -->
         <div id="output-panel" class="w-0 bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 flex flex-col transition-all duration-300 ease-in-out">
             <div class="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex justify-between items-center shrink-0">
                 <h2 class="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
@@ -212,12 +134,16 @@
                 </button>
             </div>
             
-            <div id="results-container" class="flex-1 overflow-auto p-0 bg-white dark:bg-slate-900 relative transition-colors">
+            <div id="results-container" class="flex-1 overflow-hidden relative bg-white dark:bg-[#1e1e1e]">
                 <!-- Results injected here -->
-                <div class="flex flex-col items-center justify-center h-full text-slate-400">
+                <div id="placeholder-msg" class="flex flex-col items-center justify-center h-full text-slate-400">
                     <i data-lucide="activity" class="w-10 h-10 mb-2 opacity-50"></i>
                     <p>Run comparison to see results</p>
                 </div>
+                <!-- Monaco Diff Editor will mount here -->
+                <div id="diff-editor" class="monaco-container hidden"></div>
+                <!-- Method List will mount here -->
+                <div id="method-list" class="w-full h-full overflow-auto hidden"></div>
             </div>
         </div>
 
@@ -225,55 +151,101 @@
 
     <!-- Modal for Method Diff Detail -->
     <div id="method-modal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700">
-            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
-                <h3 id="modal-title" class="font-bold text-lg text-slate-800 dark:text-slate-100">Method Diff</h3>
+        <div class="bg-white dark:bg-[#1e1e1e] rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                <h3 id="modal-title" class="font-bold text-lg text-slate-800 dark:text-slate-100 font-mono text-sm">Method Diff</h3>
                 <button onclick="closeModal()" class="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
                     <i data-lucide="x" class="w-5 h-5 text-slate-500 dark:text-slate-400"></i>
                 </button>
             </div>
-            <div id="modal-content" class="flex-1 overflow-auto p-0 bg-white dark:bg-[#0f172a] font-mono text-sm text-slate-800 dark:text-slate-200">
-                <!-- Diff content goes here -->
+            <div class="flex-1 overflow-hidden relative">
+                <div id="modal-diff-editor" class="monaco-container"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // --- State Management ---
+        // --- State ---
         let currentMode = 'full';
         let isDarkMode = true;
         
-        // --- Initialization ---
-        lucide.createIcons();
-        setupDragDrop('code1', 'drop1');
-        setupDragDrop('code2', 'drop2');
-        setupScrollSync();
+        // Monaco Instances
+        let editor1 = null;
+        let editor2 = null;
+        let diffEditor = null; // Main results diff
+        let modalDiffEditor = null; // Modal diff
         
-        // Initialize line numbers
-        updateLineNumbers('code1', 'gutter1');
-        updateLineNumbers('code2', 'gutter2');
+        // --- Monaco Initialization ---
+        require.config({ paths: { 'vs': 'https://unpkg.com/monaco-editor@0.45.0/min/vs' }});
 
-        // --- Line Numbers Logic ---
-        function updateLineNumbers(textareaId, gutterId) {
-            const textarea = document.getElementById(textareaId);
-            const gutter = document.getElementById(gutterId);
+        // Initialize
+        require(['vs/editor/editor.main'], function() {
+            initEditors();
+            document.getElementById('loader').style.display = 'none';
+            lucide.createIcons();
+        });
+
+        function initEditors() {
+            const theme = isDarkMode ? 'vs-dark' : 'vs';
+            const commonOptions = {
+                language: 'csharp',
+                theme: theme,
+                automaticLayout: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                fontSize: 14
+            };
+
+            // Input Editors
+            editor1 = monaco.editor.create(document.getElementById('editor1'), {
+                ...commonOptions,
+                value: '// Paste C# Source A here...'
+            });
+
+            editor2 = monaco.editor.create(document.getElementById('editor2'), {
+                ...commonOptions,
+                value: '// Paste C# Source B here...'
+            });
+
+            // Sync scrolling logic for inputs
+            // We use a flag to prevent infinite scroll loops
+            let isSyncing = false;
+            editor1.onDidScrollChange((e) => {
+                if(!isSyncing) {
+                    isSyncing = true;
+                    editor2.setScrollTop(e.scrollTop);
+                    editor2.setScrollLeft(e.scrollLeft);
+                    isSyncing = false;
+                }
+            });
+            editor2.onDidScrollChange((e) => {
+                if(!isSyncing) {
+                    isSyncing = true;
+                    editor1.setScrollTop(e.scrollTop);
+                    editor1.setScrollLeft(e.scrollLeft);
+                    isSyncing = false;
+                }
+            });
+
+            // Output Diff Editor
+            diffEditor = monaco.editor.createDiffEditor(document.getElementById('diff-editor'), {
+                ...commonOptions,
+                readOnly: true,
+                originalEditable: false,
+                renderSideBySide: true
+            });
             
-            // Count lines
-            const lines = textarea.value.split('\n').length;
-            
-            // Generate line numbers text
-            // Using a simple loop is faster than Array.from for massive files
-            let gutterText = '';
-            for(let i = 1; i <= lines; i++) {
-                gutterText += i + '\n';
-            }
-            // Ensure at least one line
-            if(!gutterText) gutterText = '1';
-            
-            gutter.textContent = gutterText;
+            // Modal Diff Editor
+            modalDiffEditor = monaco.editor.createDiffEditor(document.getElementById('modal-diff-editor'), {
+                ...commonOptions,
+                readOnly: true,
+                originalEditable: false,
+                renderSideBySide: true
+            });
         }
 
-        // --- Theme Logic ---
+        // --- UI & Logic ---
+
         function toggleTheme() {
             const html = document.documentElement;
             isDarkMode = !isDarkMode;
@@ -282,88 +254,20 @@
                 html.classList.add('dark');
                 html.classList.remove('light');
                 document.getElementById('theme-icon').setAttribute('data-lucide', 'sun');
-                document.getElementById('prism-theme').href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css';
+                monaco.editor.setTheme('vs-dark');
             } else {
                 html.classList.remove('dark');
                 html.classList.add('light');
                 document.getElementById('theme-icon').setAttribute('data-lucide', 'moon');
-                document.getElementById('prism-theme').href = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-vs.min.css';
+                monaco.editor.setTheme('vs');
             }
             lucide.createIcons();
         }
 
-        // --- Scroll Sync Logic ---
-        function setupScrollSync() {
-            const t1 = document.getElementById('code1');
-            const g1 = document.getElementById('gutter1');
-            const t2 = document.getElementById('code2');
-            const g2 = document.getElementById('gutter2');
-            const resultPanel = document.getElementById('results-container');
-            const checkbox = document.getElementById('sync-scroll');
-            
-            let isSyncing1 = false;
-            let isSyncing2 = false;
-
-            // Sync Inputs & Gutters
-            t1.addEventListener('scroll', () => {
-                // Sync local gutter (Always)
-                g1.scrollTop = t1.scrollTop;
-
-                if (!checkbox.checked) return;
-                
-                // Sync other editor
-                if (!isSyncing1) {
-                    isSyncing2 = true;
-                    t2.scrollTop = t1.scrollTop;
-                    t2.scrollLeft = t1.scrollLeft;
-                    // Note: G2 scroll is handled by T2's scroll listener or we can set it here directly
-                    g2.scrollTop = t1.scrollTop; 
-                }
-                isSyncing1 = false;
-            });
-
-            t2.addEventListener('scroll', () => {
-                // Sync local gutter (Always)
-                g2.scrollTop = t2.scrollTop;
-
-                if (!checkbox.checked) return;
-                
-                // Sync other editor
-                if (!isSyncing2) {
-                    isSyncing1 = true;
-                    t1.scrollTop = t2.scrollTop;
-                    t1.scrollLeft = t2.scrollLeft;
-                    g1.scrollTop = t2.scrollTop;
-                }
-                isSyncing2 = false;
-            });
-
-            // Optional: Result Panel scrolling
-            resultPanel.addEventListener('scroll', () => {
-                if (!checkbox.checked) return;
-                
-                const percentage = resultPanel.scrollTop / (resultPanel.scrollHeight - resultPanel.clientHeight);
-                
-                if (isFinite(percentage)) {
-                     if (!isSyncing1) {
-                         isSyncing2 = true; 
-                         t1.scrollTop = percentage * (t1.scrollHeight - t1.clientHeight);
-                         t2.scrollTop = percentage * (t2.scrollHeight - t2.clientHeight);
-                         setTimeout(() => { isSyncing2 = false; }, 50); 
-                     }
-                }
-            });
-        }
-
-
-        // --- UI Logic ---
-
         function setMode(mode) {
             currentMode = mode;
-            
             const btnFull = document.getElementById('mode-full');
             const btnMethods = document.getElementById('mode-methods');
-            
             const activeClass = "px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition-all shadow-sm bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-300";
             const inactiveClass = "px-3 py-1.5 rounded-md text-xs md:text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-all";
 
@@ -376,53 +280,16 @@
             }
         }
 
-        function loadFile(input, targetId) {
+        function loadFile(input, editorNum) {
             const file = input.files[0];
             if (!file) return;
-            
             const reader = new FileReader();
             reader.onload = function(e) {
                 const text = e.target.result;
-                document.getElementById(targetId).value = text;
-                // Update Line Numbers for this field
-                const gutterId = targetId === 'code1' ? 'gutter1' : 'gutter2';
-                updateLineNumbers(targetId, gutterId);
+                const editor = editorNum === 1 ? editor1 : editor2;
+                editor.setValue(text);
             };
             reader.readAsText(file);
-        }
-
-        function setupDragDrop(areaId, overlayId) {
-            // Updated selector to find editor container parent then the group container
-            const textarea = document.getElementById(areaId);
-            // .editor-container -> .group
-            const group = textarea.parentElement.parentElement;
-            const overlay = document.getElementById(overlayId);
-
-            group.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                overlay.classList.remove('hidden');
-            });
-            
-            overlay.addEventListener('dragleave', (e) => {
-                e.preventDefault();
-                overlay.classList.add('hidden');
-            });
-            
-            overlay.addEventListener('drop', (e) => {
-                e.preventDefault();
-                overlay.classList.add('hidden');
-                
-                if (e.dataTransfer.files.length > 0) {
-                    const file = e.dataTransfer.files[0];
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                        textarea.value = ev.target.result;
-                        const gutterId = areaId === 'code1' ? 'gutter1' : 'gutter2';
-                        updateLineNumbers(areaId, gutterId);
-                    };
-                    reader.readAsText(file);
-                }
-            });
         }
 
         function closeOutput() {
@@ -435,102 +302,64 @@
 
         function openOutput() {
             const panel = document.getElementById('output-panel');
+            const inputContainer = document.getElementById('input-container');
+            
             panel.classList.remove('w-0');
             
             if (window.innerWidth < 768) {
                 panel.classList.add('w-full');
+                inputContainer.classList.add('hidden'); // Hide input on mobile
             } else {
                 panel.classList.add('w-[50%]');
             }
+
+            // Trigger layout update for Monaco after resize animation
+            // Also refresh input editors so they shrink correctly
+            setTimeout(() => {
+                if(diffEditor) diffEditor.layout();
+                if(editor1) editor1.layout();
+                if(editor2) editor2.layout();
+            }, 300);
         }
 
-        // --- Core Comparison Logic ---
+        // --- Core Comparison ---
 
         function compare() {
-            if (typeof Diff === 'undefined') {
-                const container = document.getElementById('results-container');
-                container.innerHTML = `
-                    <div class="p-8 text-center text-red-600 dark:text-red-400">
-                        <i data-lucide="alert-triangle" class="w-10 h-10 mx-auto mb-2"></i>
-                        <p class="font-bold">Library Error</p>
-                        <p class="text-sm">The Diff library failed to load.</p>
-                    </div>
-                `;
-                lucide.createIcons();
-                openOutput();
-                return;
-            }
-
-            const code1 = document.getElementById('code1').value || "";
-            const code2 = document.getElementById('code2').value || "";
-
-            const container = document.getElementById('results-container');
-            container.innerHTML = ''; 
-
             openOutput();
+            
+            const code1 = editor1.getValue();
+            const code2 = editor2.getValue();
+
+            const diffDiv = document.getElementById('diff-editor');
+            const listDiv = document.getElementById('method-list');
+            const placeholder = document.getElementById('placeholder-msg');
+
+            placeholder.style.display = 'none';
 
             if (currentMode === 'full') {
-                container.innerHTML = generateDiffHtml(code1, code2);
-            } else {
-                renderMethodDiff(code1, code2, container);
-            }
-        }
-
-        function generateDiffHtml(text1, text2) {
-            const diff = Diff.diffLines(text1, text2);
-            
-            if (diff.length === 1 && !diff[0].added && !diff[0].removed) {
-                return '<div class="text-center text-slate-500 dark:text-slate-400 py-8">Files are identical.</div>';
-            }
-
-            let html = '<table class="diff-table"><tbody>';
-            let oldLine = 1;
-            let newLine = 1;
-
-            diff.forEach((part) => {
-                const colorClass = part.added ? 'bg-green-100 dark:bg-green-900/30' :
-                                   part.removed ? 'bg-red-100 dark:bg-red-900/30' : '';
+                listDiv.style.display = 'none';
+                diffDiv.style.display = 'block';
+                diffDiv.classList.remove('hidden');
                 
-                const textColor = part.added ? 'text-green-800 dark:text-green-300' :
-                                  part.removed ? 'text-red-800 dark:text-red-300' : 'text-slate-600 dark:text-slate-400';
-                
-                const symbol = part.added ? '+' : part.removed ? '-' : ' ';
-
-                const lines = part.value.split('\n');
-                if(lines[lines.length-1] === '') lines.pop();
-
-                lines.forEach(line => {
-                    let oNum = '';
-                    let nNum = '';
-
-                    if (!part.added) {
-                        oNum = oldLine++;
-                    }
-                    if (!part.removed) {
-                        nNum = newLine++;
-                    }
-
-                    html += `
-                        <tr class="${colorClass} ${textColor} hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors">
-                            <td class="diff-num text-slate-400 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">${part.added ? '' : oNum}</td>
-                            <td class="diff-num text-slate-400 border-r border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">${part.removed ? '' : nNum}</td>
-                            <td class="diff-content">${symbol} ${escapeHtml(line)}</td>
-                        </tr>
-                    `;
+                // Set models for Diff Editor
+                diffEditor.setModel({
+                    original: monaco.editor.createModel(code1, 'csharp'),
+                    modified: monaco.editor.createModel(code2, 'csharp')
                 });
-            });
-
-            html += '</tbody></table>';
-            return html;
+                diffEditor.layout(); // Refresh layout
+            } else {
+                diffDiv.style.display = 'none';
+                listDiv.style.display = 'block';
+                listDiv.classList.remove('hidden');
+                
+                renderMethodList(code1, code2, listDiv);
+            }
         }
 
-        function renderFullDiff(text1, text2, container) {
-            container.innerHTML = generateDiffHtml(text1, text2);
-        }
+        // --- Method Mode Logic ---
 
-        // --- Method Parsing & Diff ---
-        
-        function renderMethodDiff(text1, text2, container) {
+        function renderMethodList(text1, text2, container) {
+            // Using logic similar to previous version, but updated UI
             const methods1 = extractMethods(text1);
             const methods2 = extractMethods(text2);
             
@@ -544,9 +373,8 @@
                  container.innerHTML = `
                     <div class="flex flex-col items-center justify-center p-8 text-slate-500 dark:text-slate-400">
                         <i data-lucide="search-x" class="w-10 h-10 mb-2"></i>
-                        <p>No methods found. Ensure your code has standard C# method signatures.</p>
-                    </div>
-                 `;
+                        <p>No methods found.</p>
+                    </div>`;
                  lucide.createIcons();
                  return;
             }
@@ -560,20 +388,24 @@
                 let status = '';
                 let badgeClass = '';
                 let icon = '';
+                let isModified = false;
 
                 if (!m1 && m2) {
                     status = 'Added';
                     badgeClass = 'bg-green-100 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800';
                     icon = 'plus-circle';
+                    isModified = true;
                 } else if (m1 && !m2) {
                     status = 'Removed';
                     badgeClass = 'bg-red-100 text-red-700 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-800';
                     icon = 'minus-circle';
+                    isModified = true;
                 } else if (m1 && m2) {
                     if (m1.body.trim() !== m2.body.trim()) {
                         status = 'Modified';
                         badgeClass = 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800';
                         icon = 'pencil';
+                        isModified = true;
                     } else {
                         status = 'Identical';
                         badgeClass = 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
@@ -581,9 +413,12 @@
                     }
                 }
 
-                if (status !== 'Identical') {
+                if (isModified) {
+                    // Store data in data attribute for onClick
+                    // Careful with quotes in signature, using simplified escape
+                    const safeSig = sig.replace(/"/g, '&quot;');
                     html += `
-                        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between group" onclick="showMethodDetail('${escapeHtml(sig)}')">
+                        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer flex items-center justify-between group" onclick="openMethodDetail('${escapeHtml(sig)}')">
                             <div class="flex items-center gap-3 overflow-hidden">
                                 <span class="px-2 py-1 rounded-md text-xs font-bold border ${badgeClass} shrink-0 flex items-center gap-1 w-24 justify-center">
                                     <i data-lucide="${icon}" class="w-3 h-3"></i> ${status}
@@ -599,31 +434,25 @@
             html += `</div>`;
             container.innerHTML = html;
             lucide.createIcons();
-            window.lastComparison = { map1, map2 };
+            
+            // Save data for modal
+            window.lastMethodData = { map1, map2 };
         }
 
+        // --- Parsing Helpers (Same as before) ---
         function extractMethods(source) {
             const methods = [];
             const methodRegex = /((?:public|private|protected|internal|static|virtual|override|abstract|async|\s)+[\w<>[\]]+\s+(\w+)\s*\((?:[^)]*)\))\s*(?:where\s+[\w\s:<>,]+)?\s*\{/g;
-            
             let match;
             while ((match = methodRegex.exec(source)) !== null) {
                 const fullSig = match[1].trim().replace(/\s+/g, ' '); 
                 const startIndex = match.index;
-                const openBraceIndex = startIndex + match[0].length - 1; 
-                
                 const bodyEndIndex = findMatchingBrace(source, source.indexOf('{', startIndex));
-                
                 if (bodyEndIndex !== -1) {
                     const fullText = source.substring(startIndex, bodyEndIndex + 1);
                     const bodyOnly = source.substring(source.indexOf('{', startIndex), bodyEndIndex + 1);
-                    
                     if (!fullSig.includes("class ") && !fullSig.includes("namespace ")) {
-                         methods.push({
-                            signature: fullSig,
-                            body: bodyOnly,
-                            fullText: fullText
-                        });
+                         methods.push({ signature: fullSig, body: bodyOnly, fullText: fullText });
                     }
                 }
             }
@@ -652,24 +481,29 @@
                 .replace(/'/g, "&#039;");
         }
 
-        window.showMethodDetail = function(sig) {
-            const maps = window.lastComparison;
-            let realSig = sig.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+        // --- Modal ---
+        window.openMethodDetail = function(sig) {
+            // Revert HTML escape for lookup
+            let realSig = sig.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
             
-            const m1 = maps.map1.get(realSig);
-            const m2 = maps.map2.get(realSig);
+            const { map1, map2 } = window.lastMethodData;
+            const m1 = map1.get(realSig);
+            const m2 = map2.get(realSig);
+            
+            document.getElementById('modal-title').innerText = realSig;
+            document.getElementById('method-modal').classList.remove('hidden');
 
-            const modal = document.getElementById('method-modal');
-            const content = document.getElementById('modal-content');
-            const title = document.getElementById('modal-title');
+            const t1 = m1 ? m1.fullText : '';
+            const t2 = m2 ? m2.fullText : '';
 
-            title.innerText = realSig;
-            modal.classList.remove('hidden');
-
-            const text1 = m1 ? m1.fullText : '';
-            const text2 = m2 ? m2.fullText : '';
-
-            content.innerHTML = generateDiffHtml(text1, text2);
+            // Update Monaco in Modal
+            modalDiffEditor.setModel({
+                original: monaco.editor.createModel(t1, 'csharp'),
+                modified: monaco.editor.createModel(t2, 'csharp')
+            });
+            
+            // Important: Layout needs refresh when modal appears
+            setTimeout(() => modalDiffEditor.layout(), 100);
         };
 
         window.closeModal = function() {
